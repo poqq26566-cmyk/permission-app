@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.pfa8c07">
+
+    <!-- 权限管理 App：需要查询已安装应用列表 -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:name=".CrashApp"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/AppTheme"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:hardwareAccelerated="true"
+        android:resizeableActivity="true">
+
+        <!-- Declare full-screen / tall-screen support. Without this, some ROMs cap the window at
+             the legacy 1.86 aspect ratio and letterbox the app with black bars (the system bars
+             then can't be colored by the app). 2.4 covers up to ~24:9 displays. -->
+        <meta-data android:name="android.max_aspect" android:value="2.4" />
+        <meta-data android:name="android.vendor.full_screen" android:value="true" />
+        <meta-data android:name="notch.config" android:value="portrait|landscape" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Crash viewer: runs in its own process with a plain framework theme so it can render the
+             stack trace even when the AppCompat theme is what blew up. android:name handler lives in
+             CrashApp; this activity only displays the trace passed to it. -->
+        <activity
+            android:name=".CrashActivity"
+            android:exported="false"
+            android:process=":crash"
+            android:theme="@android:style/Theme.Material.Light" />
+    </application>
+</manifest>
