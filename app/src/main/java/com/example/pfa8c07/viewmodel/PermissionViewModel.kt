@@ -69,10 +69,18 @@ class PermissionViewModel(application: Application) : AndroidViewModel(applicati
                 } else null
             )
 
-            db.appDao().upsertAll(apps.map { it.toEntity() })
-            db.appDao().deleteMissing(apps.map { it.packageName })
+            // 后台扫描这段时间里，如果用户已经点开过某个应用、精确刷新过它的完整权限详情
+            // （isRuntimeVerified=true），这里不能再用扫描重新生成的（可能只有汇总数字、
+            // 权限列表是空的）旧缓存对象把它覆盖掉，否则详情页会突然"变回"只有数字没有列表。
+            val verifiedNow = _uiState.value.apps
+                .filter { it.isRuntimeVerified }
+                .associateBy { it.packageName }
+            val merged = apps.map { verifiedNow[it.packageName] ?: it }
 
-            _uiState.value = _uiState.value.copy(apps = apps, isLoading = false)
+            db.appDao().upsertAll(merged.map { it.toEntity() })
+            db.appDao().deleteMissing(merged.map { it.packageName })
+
+            _uiState.value = _uiState.value.copy(apps = merged, isLoading = false)
             applyFilters()
         }
     }
