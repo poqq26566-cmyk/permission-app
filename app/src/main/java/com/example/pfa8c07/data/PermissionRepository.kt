@@ -75,7 +75,8 @@ class PermissionRepository(private val context: Context) {
                     totalCount = permList.size,
                     versionCode = info.longVersionCode,
                     lastUpdateTime = info.lastUpdateTime,
-                    isRuntimeVerified = false
+                    isRuntimeVerified = false,
+                    hasDangerousPermission = permList.any { it.isDangerous }
                 )
             }
             .sortedBy { it.appName }
@@ -114,7 +115,8 @@ class PermissionRepository(private val context: Context) {
                 totalCount = permList.size,
                 versionCode = info.longVersionCode,
                 lastUpdateTime = info.lastUpdateTime,
-                isRuntimeVerified = true
+                isRuntimeVerified = true,
+                hasDangerousPermission = permList.any { it.isDangerous }
             )
         } catch (e: Exception) {
             null

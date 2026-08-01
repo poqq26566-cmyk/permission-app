@@ -23,7 +23,9 @@ data class AppInfo(
     val versionCode: Long = 0,
     val lastUpdateTime: Long = 0,
     /** 详情页是否已经做过精确的运行时权限校验（checkPermission） */
-    val isRuntimeVerified: Boolean = false
+    val isRuntimeVerified: Boolean = false,
+    /** 是否含有危险权限，冗余存一份是为了列表页/数据库缓存不用带着完整 permissions 也能筛选 */
+    val hasDangerousPermission: Boolean = false
 )
 
 /**
