@@ -308,18 +308,17 @@ fun AppCard(
                 contentAlignment = Alignment.Center
             ) {
                 val context = LocalContext.current
-                var icon by remember(app.packageName) {
+                var bitmap by remember(app.packageName) {
                     mutableStateOf(com.example.pfa8c07.util.IconCache.getCached(app.packageName))
                 }
                 LaunchedEffect(app.packageName) {
-                    if (icon == null) {
-                        icon = com.example.pfa8c07.util.IconCache.load(context, app.packageName)
+                    if (bitmap == null) {
+                        bitmap = com.example.pfa8c07.util.IconCache.load(context, app.packageName)
                     }
                 }
-                val bitmap = com.example.pfa8c07.util.drawableToImageBitmap(icon)
                 if (bitmap != null) {
                     androidx.compose.foundation.Image(
-                        bitmap = bitmap,
+                        bitmap = bitmap!!,
                         contentDescription = app.appName,
                         modifier = Modifier
                             .fillMaxSize()

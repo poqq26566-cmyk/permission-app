@@ -1,8 +1,8 @@
 package com.example.pfa8c07.util
 
 import android.content.Context
-import android.graphics.drawable.Drawable
 import android.util.LruCache
+import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -12,21 +12,27 @@ import kotlinx.coroutines.withContext
  * 参照 Thor 的做法：扫描应用列表时完全不碰图标（PackageManager#getApplicationIcon
  * 是同步 IPC，几百个应用一起加载非常慢），图标只在真正要显示的那一行、
  * 且尚未缓存时才去加载，加载一次后常驻内存，滚动/返回都不会重新触发 IPC。
+ *
+ * 这里直接缓存转换好的 [ImageBitmap]，而不是原始 Drawable——现代自适应图标
+ * (AdaptiveIconDrawable) 转成 Bitmap 需要开 Canvas 画一次，如果每次 Compose
+ * 重组都重新转换（哪怕图标本身没变），滚动列表时会非常卡。缓存转换结果后，
+ * 每个应用一辈子只转换一次。
  */
 object IconCache {
 
     // 大多数手机装的应用不会超过几百个，图标按 48dp 量级缓存，内存占用可控
-    private val cache = LruCache<String, Drawable>(300)
+    private val cache = LruCache<String, ImageBitmap>(300)
 
-    fun getCached(packageName: String): Drawable? = cache.get(packageName)
+    fun getCached(packageName: String): ImageBitmap? = cache.get(packageName)
 
-    suspend fun load(context: Context, packageName: String): Drawable? {
+    suspend fun load(context: Context, packageName: String): ImageBitmap? {
         cache.get(packageName)?.let { return it }
-        return withContext(Dispatchers.IO) {
+        return withContext(Dispatchers.Default) {
             try {
                 val drawable = context.packageManager.getApplicationIcon(packageName)
-                cache.put(packageName, drawable)
-                drawable
+                val bitmap = drawableToImageBitmap(drawable) ?: return@withContext null
+                cache.put(packageName, bitmap)
+                bitmap
             } catch (e: Exception) {
                 null
             }

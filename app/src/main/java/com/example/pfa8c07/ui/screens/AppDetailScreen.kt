@@ -205,18 +205,17 @@ private fun AppInfoHeader(appInfo: AppInfo) {
             contentAlignment = Alignment.Center
         ) {
             val context = LocalContext.current
-            var icon by remember(appInfo.packageName) {
+            var bitmap by remember(appInfo.packageName) {
                 mutableStateOf(com.example.pfa8c07.util.IconCache.getCached(appInfo.packageName))
             }
             LaunchedEffect(appInfo.packageName) {
-                if (icon == null) {
-                    icon = com.example.pfa8c07.util.IconCache.load(context, appInfo.packageName)
+                if (bitmap == null) {
+                    bitmap = com.example.pfa8c07.util.IconCache.load(context, appInfo.packageName)
                 }
             }
-            val bitmap = com.example.pfa8c07.util.drawableToImageBitmap(icon)
             if (bitmap != null) {
                 androidx.compose.foundation.Image(
-                    bitmap = bitmap,
+                    bitmap = bitmap!!,
                     contentDescription = appInfo.appName,
                     modifier = Modifier
                         .fillMaxSize()
