@@ -40,7 +40,10 @@ fun PermissionApp() {
                 onSearchQueryChange = { viewModel.setSearchQuery(it) },
                 onToggleSystemApps = { viewModel.toggleSystemApps() },
                 onSetPermissionFilter = { viewModel.setPermissionFilter(it) },
-                onAppClick = { pkg -> selectedPackage = pkg },
+                onAppClick = { pkg ->
+                    selectedPackage = pkg
+                    viewModel.refreshAppDetail(pkg)
+                },
                 onRefresh = { viewModel.loadApps() }
             )
         } else {

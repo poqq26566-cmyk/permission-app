@@ -204,7 +204,16 @@ private fun AppInfoHeader(appInfo: AppInfo) {
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            val bitmap = com.example.pfa8c07.util.drawableToImageBitmap(appInfo.icon)
+            val context = LocalContext.current
+            var icon by remember(appInfo.packageName) {
+                mutableStateOf(com.example.pfa8c07.util.IconCache.getCached(appInfo.packageName))
+            }
+            LaunchedEffect(appInfo.packageName) {
+                if (icon == null) {
+                    icon = com.example.pfa8c07.util.IconCache.load(context, appInfo.packageName)
+                }
+            }
+            val bitmap = com.example.pfa8c07.util.drawableToImageBitmap(icon)
             if (bitmap != null) {
                 androidx.compose.foundation.Image(
                     bitmap = bitmap,

@@ -268,7 +268,7 @@ fun AppCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 应用图标
+            // 应用图标：不在扫描阶段加载，这里按需异步加载 + 内存缓存，滚动/返回不重复触发 IPC
             Box(
                 modifier = Modifier
                     .size(52.dp)
@@ -276,7 +276,16 @@ fun AppCard(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                val bitmap = com.example.pfa8c07.util.drawableToImageBitmap(app.icon)
+                val context = LocalContext.current
+                var icon by remember(app.packageName) {
+                    mutableStateOf(com.example.pfa8c07.util.IconCache.getCached(app.packageName))
+                }
+                LaunchedEffect(app.packageName) {
+                    if (icon == null) {
+                        icon = com.example.pfa8c07.util.IconCache.load(context, app.packageName)
+                    }
+                }
+                val bitmap = com.example.pfa8c07.util.drawableToImageBitmap(icon)
                 if (bitmap != null) {
                     androidx.compose.foundation.Image(
                         bitmap = bitmap,

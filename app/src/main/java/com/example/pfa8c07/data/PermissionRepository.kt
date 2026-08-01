@@ -18,10 +18,20 @@ class PermissionRepository(private val context: Context) {
     private val pm: PackageManager = context.packageManager
 
     /**
-     * 获取所有已安装的非系统应用（可选包含系统应用）
+     * 获取所有已安装的非系统应用（可选包含系统应用）。
+     *
+     * 参照 Thor 的扫描策略：
+     * 1. 不在扫描阶段加载图标（交给 UI 按需异步加载，见 IconCache）；
+     * 2. 不对每条权限做 checkPermission() 这种跨进程调用，只读
+     *    requestedPermissionsFlags 里已有的授权位（信息已经在 PackageInfo 里，零 IPC）；
+     * 3. 传入上一次的扫描结果作为缓存，versionCode/lastUpdateTime 都没变的应用
+     *    直接复用缓存对象，完全跳过重新解析。
      */
     @SuppressLint("QueryPermissionsNeeded")
-    fun getInstalledApps(includeSystem: Boolean = false): List<AppInfo> {
+    fun getInstalledApps(
+        includeSystem: Boolean = false,
+        cachedApps: Map<String, AppInfo> = emptyMap()
+    ): List<AppInfo> {
         val packages: List<PackageInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val flags = PackageManager.PackageInfoFlags.of(
                 PackageManager.GET_PERMISSIONS.toLong()
@@ -38,23 +48,34 @@ class PermissionRepository(private val context: Context) {
                 if (includeSystem) true else !isSystem
             }
             .mapNotNull { info ->
+                val cached = cachedApps[info.packageName]
+                if (cached != null &&
+                    cached.versionCode == info.longVersionCode &&
+                    cached.lastUpdateTime == info.lastUpdateTime
+                ) {
+                    // 未变化，直接复用，跳过一切解析
+                    return@mapNotNull cached
+                }
+
                 val appName = info.applicationInfo?.let { pm.getApplicationLabel(it) }?.toString() ?: info.packageName
-                val icon = info.applicationInfo?.let { pm.getApplicationIcon(it) }
                 val isSystem = isSystemApp(info)
 
-                // 解析权限
-                val permList = parsePermissions(info)
+                // 轻量解析：只用 flags 位判断是否授权，不发起 checkPermission IPC
+                val permList = parsePermissions(info, lightweight = true)
 
                 AppInfo(
                     packageName = info.packageName,
                     appName = appName,
                     versionName = info.versionName ?: "",
-                    icon = icon,
+                    icon = null,
                     isSystemApp = isSystem,
                     targetSdk = info.applicationInfo?.targetSdkVersion ?: 0,
                     permissions = permList,
                     grantedCount = permList.count { it.isGranted },
-                    totalCount = permList.size
+                    totalCount = permList.size,
+                    versionCode = info.longVersionCode,
+                    lastUpdateTime = info.lastUpdateTime,
+                    isRuntimeVerified = false
                 )
             }
             .sortedBy { it.appName }
@@ -76,21 +97,24 @@ class PermissionRepository(private val context: Context) {
             }
 
             val appName = info.applicationInfo?.let { pm.getApplicationLabel(it) }?.toString() ?: packageName
-            val icon = info.applicationInfo?.let { pm.getApplicationIcon(it) }
             val isSystem = isSystemApp(info)
 
-            val permList = parsePermissions(info)
+            // 详情页只针对单个应用，checkPermission 的开销可以接受，用它做精确校验
+            val permList = parsePermissions(info, lightweight = false)
 
             AppInfo(
                 packageName = info.packageName,
                 appName = appName,
                 versionName = info.versionName ?: "",
-                icon = icon,
+                icon = null,
                 isSystemApp = isSystem,
                 targetSdk = info.applicationInfo?.targetSdkVersion ?: 0,
                 permissions = permList,
                 grantedCount = permList.count { it.isGranted },
-                totalCount = permList.size
+                totalCount = permList.size,
+                versionCode = info.longVersionCode,
+                lastUpdateTime = info.lastUpdateTime,
+                isRuntimeVerified = true
             )
         } catch (e: Exception) {
             null
@@ -100,7 +124,7 @@ class PermissionRepository(private val context: Context) {
     /**
      * 解析权限列表并检查当前授予状态
      */
-    private fun parsePermissions(info: PackageInfo): List<AppPermission> {
+    private fun parsePermissions(info: PackageInfo, lightweight: Boolean): List<AppPermission> {
         val requestedPermissions = info.requestedPermissions ?: return emptyList()
         val requestedPermissionsFlags = info.requestedPermissionsFlags ?: return emptyList()
 
@@ -111,12 +135,16 @@ class PermissionRepository(private val context: Context) {
                 (requestedPermissionsFlags[index] and PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
             } else false
 
-            // 运行时检查（更准确）
-            val runtimeGranted = try {
-                context.checkPermission(permName, Process.myPid(), Process.myUid()) ==
-                        PackageManager.PERMISSION_GRANTED
-            } catch (e: Exception) {
+            // 运行时检查（更准确，但是跨进程调用，列表扫描阶段跳过，只在详情页做）
+            val runtimeGranted = if (lightweight) {
                 isGranted
+            } else {
+                try {
+                    context.checkPermission(permName, Process.myPid(), Process.myUid()) ==
+                            PackageManager.PERMISSION_GRANTED
+                } catch (e: Exception) {
+                    isGranted
+                }
             }
 
             val label = getPermissionLabel(permName)

@@ -9,7 +9,8 @@ data class AppInfo(
     val packageName: String,
     val appName: String,
     val versionName: String,
-    val icon: Drawable?,
+    /** 图标不在扫描阶段加载，由 UI 按需异步加载并缓存（见 IconCache） */
+    val icon: Drawable? = null,
     val isSystemApp: Boolean,
     val targetSdk: Int,
     /** 所有声明的权限列表 */
@@ -17,7 +18,12 @@ data class AppInfo(
     /** 已授予的权限数 */
     val grantedCount: Int = 0,
     /** 权限总数 */
-    val totalCount: Int = 0
+    val totalCount: Int = 0,
+    /** 用于增量扫描时判断该应用是否变化过，未变化则直接复用缓存，跳过重新解析 */
+    val versionCode: Long = 0,
+    val lastUpdateTime: Long = 0,
+    /** 详情页是否已经做过精确的运行时权限校验（checkPermission） */
+    val isRuntimeVerified: Boolean = false
 )
 
 /**
