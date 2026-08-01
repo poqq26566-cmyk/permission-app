@@ -1,5 +1,6 @@
 package com.example.pfa8c07
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
@@ -16,6 +17,13 @@ fun PermissionApp() {
 
     var selectedPackage by remember { mutableStateOf<String?>(null) }
     val selectedApp = selectedPackage?.let { viewModel.getAppDetail(it) }
+
+    // 详情页打开时，系统返回键/手势应该先关掉详情页回到列表，
+    // 而不是直接把整个 Activity 关掉退到桌面（因为页面切换是自己用一个状态
+    // 变量做的，不是系统返回栈，不拦截的话系统压根不知道"现在在详情页"）
+    BackHandler(enabled = selectedPackage != null) {
+        selectedPackage = null
+    }
 
     AnimatedContent(
         targetState = selectedPackage,
