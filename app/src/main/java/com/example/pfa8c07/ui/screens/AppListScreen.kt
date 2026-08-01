@@ -177,17 +177,48 @@ fun AppListScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(horizontal = 40.dp)
+                        ) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(40.dp),
-                                strokeWidth = 3.dp
+                                progress = {
+                                    if (uiState.syncTotal > 0)
+                                        uiState.syncCurrent.toFloat() / uiState.syncTotal
+                                    else 0f
+                                },
+                                modifier = Modifier.size(56.dp),
+                                strokeWidth = 4.dp
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
                             Text(
-                                "正在扫描应用...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "正在设置您的应用...",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
                             )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (uiState.syncTotal > 0) {
+                                Text(
+                                    "${uiState.syncCurrent} / ${uiState.syncTotal} 个应用",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                LinearProgressIndicator(
+                                    progress = { uiState.syncCurrent.toFloat() / uiState.syncTotal },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            } else {
+                                Text(
+                                    "正在扫描应用...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

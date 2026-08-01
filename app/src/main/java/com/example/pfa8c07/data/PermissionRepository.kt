@@ -30,7 +30,8 @@ class PermissionRepository(private val context: Context) {
     @SuppressLint("QueryPermissionsNeeded")
     fun getInstalledApps(
         includeSystem: Boolean = false,
-        cachedApps: Map<String, AppInfo> = emptyMap()
+        cachedApps: Map<String, AppInfo> = emptyMap(),
+        onProgress: ((current: Int, total: Int) -> Unit)? = null
     ): List<AppInfo> {
         val packages: List<PackageInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val flags = PackageManager.PackageInfoFlags.of(
@@ -42,27 +43,33 @@ class PermissionRepository(private val context: Context) {
             pm.getInstalledPackages(PackageManager.GET_PERMISSIONS)
         }
 
-        return packages
-            .filter { info ->
-                val isSystem = isSystemApp(info)
-                if (includeSystem) true else !isSystem
+        val filtered = packages.filter { info ->
+            val isSystem = isSystemApp(info)
+            if (includeSystem) true else !isSystem
+        }
+        val total = filtered.size
+        val result = ArrayList<AppInfo>(total)
+
+        filtered.forEachIndexed { index, info ->
+            onProgress?.invoke(index + 1, total)
+
+            val cached = cachedApps[info.packageName]
+            if (cached != null &&
+                cached.versionCode == info.longVersionCode &&
+                cached.lastUpdateTime == info.lastUpdateTime
+            ) {
+                // 未变化，直接复用，跳过一切解析
+                result.add(cached)
+                return@forEachIndexed
             }
-            .mapNotNull { info ->
-                val cached = cachedApps[info.packageName]
-                if (cached != null &&
-                    cached.versionCode == info.longVersionCode &&
-                    cached.lastUpdateTime == info.lastUpdateTime
-                ) {
-                    // 未变化，直接复用，跳过一切解析
-                    return@mapNotNull cached
-                }
 
-                val appName = info.applicationInfo?.let { pm.getApplicationLabel(it) }?.toString() ?: info.packageName
-                val isSystem = isSystemApp(info)
+            val appName = info.applicationInfo?.let { pm.getApplicationLabel(it) }?.toString() ?: info.packageName
+            val isSystem = isSystemApp(info)
 
-                // 轻量解析：只用 flags 位判断是否授权，不发起 checkPermission IPC
-                val permList = parsePermissions(info, lightweight = true)
+            // 轻量解析：只用 flags 位判断是否授权，不发起 checkPermission IPC
+            val permList = parsePermissions(info, lightweight = true)
 
+            result.add(
                 AppInfo(
                     packageName = info.packageName,
                     appName = appName,
@@ -78,8 +85,10 @@ class PermissionRepository(private val context: Context) {
                     isRuntimeVerified = false,
                     hasDangerousPermission = permList.any { it.isDangerous }
                 )
-            }
-            .sortedBy { it.appName }
+            )
+        }
+
+        return result.sortedBy { it.appName }
     }
 
     /**

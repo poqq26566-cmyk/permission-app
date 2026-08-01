@@ -20,7 +20,10 @@ data class AppListUiState(
     val isLoading: Boolean = true,
     val searchQuery: String = "",
     val showSystemApps: Boolean = false,
-    val permissionFilter: PermissionFilter = PermissionFilter.ALL
+    val permissionFilter: PermissionFilter = PermissionFilter.ALL,
+    /** 只有真正首次启动（本地无缓存）才会有意义地滚动，用于展示"正在设置您的应用..."进度 */
+    val syncCurrent: Int = 0,
+    val syncTotal: Int = 0
 )
 
 enum class PermissionFilter {
@@ -58,7 +61,13 @@ class PermissionViewModel(application: Application) : AndroidViewModel(applicati
             }
 
             val cachedMap = cachedApps.associateBy { it.packageName }
-            val apps = repository.getInstalledApps(includeSystem = true, cachedApps = cachedMap)
+            val apps = repository.getInstalledApps(
+                includeSystem = true,
+                cachedApps = cachedMap,
+                onProgress = if (!hasCache) { current, total ->
+                    _uiState.value = _uiState.value.copy(syncCurrent = current, syncTotal = total)
+                } else null
+            )
 
             db.appDao().upsertAll(apps.map { it.toEntity() })
             db.appDao().deleteMissing(apps.map { it.packageName })
